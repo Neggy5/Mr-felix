@@ -1,6 +1,7 @@
 const config = require('../config');
 const db = require('../db');
 const { fmt } = require('../utils');
+const { buildStartKeyboard } = require('../forceJoin');
 
 module.exports = (registry) => {
   registry.add({
@@ -8,11 +9,39 @@ module.exports = (registry) => {
     category: 'General',
     description: 'Wake the bot up',
     handler: async (ctx) => {
+      // Note: this handler only ever runs for users who already passed
+      // forceJoinMiddleware (see index.js) - /start is not exempted from
+      // the gate, so an unjoined user sees the "🔒 join first" prompt
+      // instead of reaching here at all.
       db.getUser(ctx.from.id, ctx.from.first_name);
-      await ctx.reply(
-        `👋 Hey ${ctx.from.first_name}, ${config.BOT_NAME} is online.\n\n` +
-        `Use /help or /allcmd to see everything I can do.`
-      );
+
+      const bar = '🟦'.repeat(10);
+      const caption =
+        `🔷 <b>${config.BOT_NAME.toUpperCase()} // WELCOME</b>\n` +
+        `${bar}\n` +
+        `🔵 <b>Welcome, ${ctx.from.first_name}!</b>\n\n` +
+        `📱 <b>COMMANDS</b>\n` +
+        `➤ /help — See every command\n` +
+        `➤ /ping — Latency check\n` +
+        `➤ /rank — Your XP level\n` +
+        `➤ /userinfo — Look up a member\n` +
+        `➖➖➖➖➖➖➖➖➖➖➖➖➖➖➖\n` +
+        `◆ ${config.BOT_NAME} ◆`;
+
+      const reply_markup = buildStartKeyboard();
+      const photoSource = /^https?:\/\//i.test(config.BOT_IMAGE)
+        ? config.BOT_IMAGE
+        : { source: config.BOT_IMAGE };
+
+      try {
+        await ctx.replyWithPhoto(photoSource, { caption, parse_mode: 'HTML', reply_markup });
+      } catch (e) {
+        // Most likely config.BOT_IMAGE is still the placeholder, or the
+        // local file path doesn't exist yet - fall back to text so /start
+        // still works while that gets set up.
+        console.error('Failed to send /start banner image (check config.BOT_IMAGE):', e.description || e.message);
+        await ctx.reply(caption, { parse_mode: 'HTML', reply_markup });
+      }
     }
   });
 
