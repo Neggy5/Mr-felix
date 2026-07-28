@@ -1,5 +1,6 @@
 const { Markup } = require('telegraf');
 const config = require('./config');
+const { styledUrlButton } = require('./utils');
 
 // A quick note on "blue buttons": Telegram's Bot API doesn't let a bot set
 // custom colors on inline buttons - that styling is controlled entirely by
@@ -15,6 +16,19 @@ function buildJoinKeyboard() {
   if (group?.url) rows.push([Markup.button.url(group.label || '💬 Join Group', group.url)]);
   rows.push([Markup.button.callback('✅ I\'ve Joined', 'check_join')]);
   return Markup.inlineKeyboard(rows);
+}
+
+// Compact side-by-side "GROUP / CHANNEL" row used on the /start banner once
+// a user has passed the force-join gate below. Left unstyled (no explicit
+// `style`) since that's the confirmed way to get the default accent/blue -
+// Telegram's only documented explicit values are "destructive" and
+// "secondary", there's no documented explicit blue.
+function buildStartKeyboard() {
+  const { channel, group } = config.FORCE_JOIN;
+  const row = [];
+  if (group?.url) row.push(styledUrlButton('GROUP ↗', group.url));
+  if (channel?.url) row.push(styledUrlButton('CHANNEL ↗', channel.url));
+  return row.length ? { inline_keyboard: [row] } : undefined;
 }
 
 async function isMember(telegram, chatId, userId) {
@@ -63,11 +77,11 @@ function registerJoinCallback(bot) {
     const joined = await checkAllJoined(ctx.telegram, ctx.from.id);
     if (joined) {
       await ctx.answerCbQuery('✅ Verified! You\'re in.');
-      await ctx.editMessageText('✅ Thanks for joining! You can now use all commands. Send /help to get started.');
+      await ctx.editMessageText('✅ Thanks for joining! You can now use all commands. Send /start to get started.');
     } else {
       await ctx.answerCbQuery('❌ Still missing one — make sure you joined both.', { show_alert: true });
     }
   });
 }
 
-module.exports = { forceJoinMiddleware, registerJoinCallback, checkAllJoined, buildJoinKeyboard };
+module.exports = { forceJoinMiddleware, registerJoinCallback, checkAllJoined, buildJoinKeyboard, buildStartKeyboard };

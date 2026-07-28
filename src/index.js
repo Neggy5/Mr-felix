@@ -20,10 +20,12 @@ bot.use(forceJoinMiddleware());
 registerJoinCallback(bot);
 registerModerationActions(bot);
 
+const moderationCommands = require('./commands/moderation');
+
 // Load every command module.
 [
   require('./commands/general'),
-  require('./commands/moderation'),
+  moderationCommands,
   require('./commands/economy'),
   require('./commands/games'),
   require('./commands/checks'),
@@ -72,6 +74,13 @@ bot.on('text', async (ctx, next) => {
 
   const g = db.getGroup(ctx.chat.id, ctx.chat.title);
   const lower = ctx.message.text.toLowerCase();
+
+  // giveaway entry ("join" while a /giveaway is running in this chat)
+  const giveaway = moderationCommands.activeGiveaways.get(String(ctx.chat.id));
+  if (giveaway && lower.trim() === 'join') {
+    giveaway.entrants.add(ctx.from.id);
+    await ctx.reply(`✅ ${ctx.from.first_name} entered the giveaway for ${giveaway.prize}!`).catch(() => {});
+  }
 
   // filters (auto-replies)
   if (g.filters[lower]) {
