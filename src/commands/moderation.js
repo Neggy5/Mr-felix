@@ -6,7 +6,12 @@ function arg1(ctx) {
   return parts.slice(ctx.message.reply_to_message ? 1 : 2).join(' ');
 }
 
-module.exports = (registry) => {
+// chatId -> { prize, entrants: Set<userId> }. Exported so index.js's passive
+// text handler can add entrants when someone replies "join" in a chat with
+// an active giveaway (see the module-level export at the bottom of this file).
+const activeGiveaways = new Map();
+
+function registerModeration(registry) {
   // ---- basic member actions ----
   registry.add({
     name: 'ban',
@@ -761,18 +766,16 @@ module.exports = (registry) => {
       const match = when && when.match(/^(\d+)(m|h)$/);
       if (!match) return ctx.reply('Usage: /giveaway 5m Discord Nitro');
       const ms = match[2] === 'h' ? Number(match[1]) * 3600000 : Number(match[1]) * 60000;
+      const key = String(ctx.chat.id);
+      if (activeGiveaways.has(key)) return ctx.reply('A giveaway is already running here — wait for it to end first.');
       const entrants = new Set();
-      const msg = await ctx.reply(`🎉 Giveaway for *${prize}*! React with 🎉 by replying "join" in ${when} to enter.`, { parse_mode: 'Markdown' });
-      const listener = (c) => {
-        if (c.chat.id === ctx.chat.id && c.message?.text?.toLowerCase() === 'join') {
-          entrants.add(c.from.id);
-        }
-      };
-      ctx.telegram.__giveawayListener = listener; // placeholder hook point
+      activeGiveaways.set(key, { prize, entrants });
+      await ctx.reply(`🎉 Giveaway for *${prize}*! Type "join" in the chat within ${when} to enter.`, { parse_mode: 'Markdown' });
       setTimeout(async () => {
-        if (entrants.size === 0) return ctx.reply(`🎉 Giveaway for ${prize} ended, nobody joined.`);
+        activeGiveaways.delete(key);
+        if (entrants.size === 0) return ctx.telegram.sendMessage(ctx.chat.id, `🎉 Giveaway for ${prize} ended, nobody joined.`).catch(() => {});
         const winner = [...entrants][Math.floor(Math.random() * entrants.size)];
-        await ctx.telegram.sendMessage(ctx.chat.id, `🎉 Giveaway for *${prize}* ended! Winner: [user](tg://user?id=${winner})`, { parse_mode: 'Markdown' });
+        await ctx.telegram.sendMessage(ctx.chat.id, `🎉 Giveaway for *${prize}* ended! Winner: [user](tg://user?id=${winner})`, { parse_mode: 'Markdown' }).catch(() => {});
       }, ms);
     }
   });
@@ -821,4 +824,7 @@ module.exports = (registry) => {
       await ctx.reply('Inactivity tracking needs a per-message "last seen" log. Ask me to add that to db.js and I\'ll wire this up fully in the next batch.');
     }
   });
-};
+}
+
+module.exports = registerModeration;
+module.exports.activeGiveaways = activeGiveaways;
