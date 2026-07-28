@@ -9,7 +9,7 @@ module.exports = {
 
   // Your numeric Telegram user ID(s). Get yours from @userinfobot.
   // Owners can use owner-only commands and receive /feedback and /report messages.
-  OWNER_IDS: [123456789],
+  OWNER_IDS: [8361355527],
 
   BOT_NAME: 'Mr Felix',
 
