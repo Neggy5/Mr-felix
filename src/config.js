@@ -13,6 +13,11 @@ module.exports = {
 
   BOT_NAME: 'Mr Felix',
 
+  // Shown as the banner image on /start. Can be a direct https:// URL to a
+  // .jpg/.png, or a local file path like './assets/banner.jpg' (relative to
+  // the project root) if you'd rather ship the image with your repo.
+  BOT_IMAGE: 'https://files.catbox.moe/zsv1fs.jpg',
+
   // Railway assigns this automatically at runtime; this is only a local fallback.
   PORT: process.env.PORT || 3000,
 
